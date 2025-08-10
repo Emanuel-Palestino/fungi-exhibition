@@ -2,37 +2,39 @@
 
 // ====== CONFIGURACIÓN GENERAL ======
 #define LED_PIN     6
-#define NUM_LEDS    50
+#define NUM_LEDS    120
 #define LED_TYPE    WS2812B // WS2815 se maneja igual que WS2812B
-#define COLOR_ORDER GRB
+#define COLOR_ORDER RGB
 #define BRIGHTNESS  255
 
 CRGB leds[NUM_LEDS];
 
 // ====== COLOR BASE (usa valores RGB) ======
-// Ejemplo: rojo = (255, 0, 0), azul = (0, 0, 255), blanco = (255, 255, 255)
-uint8_t baseR = 138;   // Rojo
-uint8_t baseG = 30;   // Verde
-uint8_t baseB = 59; // Azul
+uint8_t baseR = 100;
+uint8_t baseG = 250;
+uint8_t baseB = 1;
 
 // ====== PARÁMETROS DE RESPIRACIÓN ======
 uint8_t breathBrightness = 0; 
 int breathDirection = 1; 
 unsigned long lastUpdate = 0; 
-int breathSpeed = 5; // Velocidad de respiración
-uint8_t minBrightness = 10;   // Brillo mínimo
-uint8_t maxBrightness = 100;  // Brillo máximo
+int breathSpeed = 120; 
+uint8_t minBrightness = 5;   
+uint8_t maxBrightness = 100;  
 
 // ====== PARÁMETROS DE VENAS ======
-int pulsoPos = 0;              // Posición actual del pulso
-int pulsoAncho = 15;           // Ancho del pulso
-int pulsoVelocidad = 60;       // Milisegundos entre pasos
+int pulsoPos = 0;              
+int pulsoAncho = 15;           
+int pulsoVelocidad = 60;       
 uint8_t pulsoBrillo = minBrightness;
-int pulsoDireccionBrillo = 1;  // 1 = sube, -1 = baja
+int pulsoDireccionBrillo = 1;  
 unsigned long ultimoPulso = 0;
 
 // ====== SETUP ======
 void setup() {
+  Serial.begin(115200);
+  Serial.println("Envia color RGB como: R,G,B (0-255)");
+
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.clear();
@@ -40,6 +42,33 @@ void setup() {
 
   breathBrightness = minBrightness;
   pulsoBrillo = minBrightness;
+}
+
+// ====== LECTURA DE COLOR DESDE SERIAL ======
+void leerColorSerial() {
+  if (Serial.available()) {
+    String data = Serial.readStringUntil('\n');
+    data.trim(); 
+
+    int firstComma = data.indexOf(',');
+    int secondComma = data.indexOf(',', firstComma + 1);
+
+    if (firstComma > 0 && secondComma > firstComma) {
+      int r = data.substring(0, firstComma).toInt();
+      int g = data.substring(firstComma + 1, secondComma).toInt();
+      int b = data.substring(secondComma + 1).toInt();
+
+      // Validar rango
+      baseR = constrain(r, 0, 255);
+      baseG = constrain(g, 0, 255);
+      baseB = constrain(b, 0, 255);
+
+      Serial.print("Nuevo color: ");
+      Serial.print(baseR); Serial.print(", ");
+      Serial.print(baseG); Serial.print(", ");
+      Serial.println(baseB);
+    }
+  }
 }
 
 // ====== EFECTO RESPIRACIÓN ======
@@ -69,14 +98,13 @@ void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
-// ====== EFECTO VENAS (fondo tenue + rastro) ======
+// ====== EFECTO VENAS ======
 void efectoVenas(uint8_t r, uint8_t g, uint8_t b) {
   unsigned long ahora = millis();
 
   if (ahora - ultimoPulso > pulsoVelocidad) {
     ultimoPulso = ahora;
 
-    // Ajustar brillo del pulso
     pulsoBrillo += pulsoDireccionBrillo;
     if (pulsoBrillo >= maxBrightness) {
       pulsoBrillo = maxBrightness;
@@ -87,12 +115,10 @@ void efectoVenas(uint8_t r, uint8_t g, uint8_t b) {
       pulsoDireccionBrillo = 1;
     }
 
-    // 1️⃣ Desvanecer el rastro
     for (int i = 0; i < NUM_LEDS; i++) {
       leds[i].fadeToBlackBy(40);
     }
 
-    // 2️⃣ Fondo mínimo
     for (int i = 0; i < NUM_LEDS; i++) {
       if (leds[i].getAverageLight() < minBrightness) {
         leds[i] = CRGB(r, g, b);
@@ -100,14 +126,12 @@ void efectoVenas(uint8_t r, uint8_t g, uint8_t b) {
       }
     }
 
-    // 3️⃣ Pulso principal
     for (int i = 0; i < pulsoAncho; i++) {
       int ledIndex = (pulsoPos + i) % NUM_LEDS;
       leds[ledIndex] = CRGB(r, g, b);
       leds[ledIndex].nscale8_video(pulsoBrillo);
     }
 
-    // Mover el pulso
     pulsoPos++;
     if (pulsoPos >= NUM_LEDS) {
       pulsoPos = 0;
@@ -119,6 +143,7 @@ void efectoVenas(uint8_t r, uint8_t g, uint8_t b) {
 
 // ====== LOOP ======
 void loop() {
-  //efectoRespiracion(baseR, baseG, baseB);
-  efectoVenas(baseR, baseG, baseB);
+  leerColorSerial();  // 📌 Ahora el color se puede cambiar desde el Serial Monitor
+  efectoRespiracion(baseR, baseG, baseB);
+  //efectoVenas(baseR, baseG, baseB);
 }
