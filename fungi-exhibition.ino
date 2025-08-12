@@ -42,6 +42,21 @@ uint8_t pulsoBrillo = minBrightness;
 int pulsoDireccionBrillo = 1;
 unsigned long ultimoPulso = 0;
 
+// ====== PARÁMETROS DE LATIDO DOBLE REALISTA ======
+unsigned long lastLatidoStep = 0;     // controla steps (velocidadLatido)
+unsigned long latidoPhaseStart = 0;   // marca inicio de pausas (entre golpes / larga)
+int velocidadLatido = 25;       // Velocidad de cambio de brillo durante cada golpe (ms)
+int tiempoEntreLatidos = 600;   // Pausa larga entre pares de golpes (ms)
+int tiempoEntreGolpes = 120;    // Pausa corta entre golpe 1 y golpe 2 (ms)
+uint8_t latidoBrillo = minBrightness;
+
+float factorSegundoGolpe = 0.6; // 80% de la intensidad del primer golpe
+
+enum EstadoLatido { PRIMER_GOLPE, PAUSA_ENTRE_GOLPES, SEGUNDO_GOLPE, PAUSA_LARGA };
+EstadoLatido estadoLatido = PRIMER_GOLPE;
+
+bool subiendoLatido = true;
+
 // ====== SETUP ======
 void setup() {
   Serial.begin(115200);
@@ -54,6 +69,7 @@ void setup() {
 
   breathBrightness = minBrightness;
   pulsoBrillo = minBrightness;
+  latidoBrillo = minBrightness;
 
   randomSeed(analogRead(A0)); // Semilla aleatoria
 }
@@ -165,9 +181,87 @@ void efectoVenas(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
+// ====== EFECTO LATIDO DOBLE REALISTA (CORREGIDO) ======
+void efectoLatidoDoble(uint8_t r, uint8_t g, uint8_t b) {
+  unsigned long ahora = millis();
+
+  // Controlamos el ritmo de "pasos" del latido con lastLatidoStep
+  if (ahora - lastLatidoStep >= velocidadLatido) {
+    lastLatidoStep = ahora;
+
+    switch (estadoLatido) {
+      case PRIMER_GOLPE:
+        if (subiendoLatido) {
+          // Subida rápida
+          latidoBrillo = min( (int)latidoBrillo + 12, (int)maxBrightness );
+          if (latidoBrillo >= maxBrightness) {
+            subiendoLatido = false;
+          }
+        } else {
+          // Bajada rápida
+          latidoBrillo = max( (int)latidoBrillo - 6, (int)minBrightness );
+          if (latidoBrillo <= minBrightness) {
+            // Entramos en pausa corta antes del segundo golpe
+            latidoBrillo = minBrightness;
+            subiendoLatido = true;
+            estadoLatido = PAUSA_ENTRE_GOLPES;
+            latidoPhaseStart = ahora; // marca inicio de pausa corta
+          }
+        }
+        break;
+
+      case PAUSA_ENTRE_GOLPES:
+        // Esperamos la pausa corta (sin cambiar latidoBrillo)
+        if (ahora - latidoPhaseStart >= (unsigned long)tiempoEntreGolpes) {
+          estadoLatido = SEGUNDO_GOLPE;
+          subiendoLatido = true;
+          // asegúrate de partir desde minBrightness en el segundo golpe
+          latidoBrillo = minBrightness;
+        }
+        break;
+
+      case SEGUNDO_GOLPE:
+        if (subiendoLatido) {
+          uint8_t maxSegundo = (uint8_t)(maxBrightness * factorSegundoGolpe);
+          latidoBrillo = min( (int)latidoBrillo + 12, (int)maxSegundo );
+          if (latidoBrillo >= maxSegundo) {
+            subiendoLatido = false;
+          }
+        } else {
+          latidoBrillo = max( (int)latidoBrillo - 6, (int)minBrightness );
+          if (latidoBrillo <= minBrightness) {
+            // Fin del segundo golpe → pausa larga
+            latidoBrillo = minBrightness;
+            subiendoLatido = true;
+            estadoLatido = PAUSA_LARGA;
+            latidoPhaseStart = ahora; // marca inicio de pausa larga
+          }
+        }
+        break;
+
+      case PAUSA_LARGA:
+        // Esperamos la pausa larga antes de reiniciar el par de latidos
+        if (ahora - latidoPhaseStart >= (unsigned long)tiempoEntreLatidos) {
+          estadoLatido = PRIMER_GOLPE;
+          subiendoLatido = true;
+          latidoBrillo = minBrightness;
+        }
+        break;
+    }
+
+    // Aplicar el brillo a todos los LEDs
+    for (int i = 0; i < NUM_LEDS; i++) {
+      leds[i] = CRGB(r, g, b);
+      leds[i].nscale8_video(latidoBrillo);
+    }
+    FastLED.show();
+  }
+}
+
 // ====== LOOP ======
 void loop() {
   leerColorSerial();
-  efectoRespiracion(baseR, baseG, baseB);
+  //efectoRespiracion(baseR, baseG, baseB);
   //efectoVenas(baseR, baseG, baseB);
+  efectoLatidoDoble(baseR, baseG, baseB);
 }

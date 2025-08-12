@@ -1,17 +1,15 @@
 {
-  "port": "/dev/cu.usbmodem11301",
-  "monitorPortSettings": {
-    "port": "/dev/tty.usbmodem11301",
-    "baudRate": 115200,
-    "lineEnding": "\r\n",
-    "dataBits": 8,
-    "parity": "none",
-    "stopBits": "one"
-  },
-  "optimize_for_debug": false,
-  "configuration": "",
-  "board": "arduino:avr:uno",
-  "configurationRequired": false,
-  "useProgrammer": false,
-  "programmer": "arduino as isp"
+    "port": "/dev/cu.usbmodem11301",
+    "monitorPortSettings": {
+        "port": "/dev/tty.usbmodem11301",
+        "baudRate": 115200,
+        "lineEnding": "\r\n",
+        "dataBits": 8,
+        "parity": "none",
+        "stopBits": "one"
+    },
+    "optimize_for_debug": false,
+    "board": "arduino:avr:uno",
+    "configurationRequired": false,
+    "useProgrammer": false
 }
