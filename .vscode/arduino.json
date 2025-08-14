@@ -1,7 +1,7 @@
 {
     "port": "/dev/cu.usbmodem11301",
     "monitorPortSettings": {
-        "port": "/dev/tty.usbmodem11301",
+        "port": "COM6",
         "baudRate": 115200,
         "lineEnding": "\r\n",
         "dataBits": 8,
@@ -11,5 +11,6 @@
     "optimize_for_debug": false,
     "board": "arduino:avr:uno",
     "configurationRequired": false,
-    "useProgrammer": false
+    "useProgrammer": false,
+    "programmer": "arduino as isp"
 }

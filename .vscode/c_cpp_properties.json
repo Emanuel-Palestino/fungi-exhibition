@@ -3,18 +3,18 @@
     {
       "name": "Arduino",
       "includePath": [
-        "/Users/adri/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/cores/arduino/**",
-        "/Users/adri/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/variants/standard/**",
-        "/Users/adri/Documents/Arduino/libraries/FastLED/src/**",
-        "/Users/adri/Documents/Arduino/libraries/**",
-        "/Users/adri/Documents/Ema/fungi-exhibition/**"
+        "C:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\cores\\arduino/**",
+        "C:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\variants\\standard/**",
+        "C:\\Users\\emanu\\Documents\\Arduino\\libraries\\FastLED\\src/**",
+        "C:\\Users\\emanu\\Documents\\Arduino\\libraries/**",
+        "C:\\Users\\emanu\\Documents\\Personal Projects\\fungi-exhibition/**"
       ],
       "forcedInclude": [
-        "/Users/adri/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/cores/arduino/Arduino.h"
+        "C:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\cores\\arduino\\Arduino.h"
       ],
-      "compilerPath": "/Users/adri/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
+      "compilerPath": "C:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
       "compilerArgs": [
-        "/Users/adri/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
+        "C:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
         "-c",
         "-g",
         "-Os",
@@ -33,12 +33,12 @@
         "-DARDUINO=10607",
         "-DARDUINO_AVR_UNO",
         "-DARDUINO_ARCH_AVR",
-        "-I/Users/adri/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/cores/arduino",
-        "-I/Users/adri/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/variants/standard",
-        "-I/Users/adri/Documents/Arduino/libraries/FastLED/src",
-        "/Users/adri/Documents/Ema/fungi-exhibition/build/sketch/fungi-exhibition.ino.cpp",
+        "-IC:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\cores\\arduino",
+        "-IC:\\Users\\emanu\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\variants\\standard",
+        "-IC:\\Users\\emanu\\Documents\\Arduino\\libraries\\FastLED\\src",
+        "c:\\Users\\emanu\\Documents\\Personal Projects\\fungi-exhibition\\build\\sketch\\fungi-exhibition.ino.cpp",
         "-o",
-        "/Users/adri/Documents/Ema/fungi-exhibition/build/sketch/fungi-exhibition.ino.cpp.o"
+        "c:\\Users\\emanu\\Documents\\Personal Projects\\fungi-exhibition\\build\\sketch\\fungi-exhibition.ino.cpp.o"
       ],
       "defines": [
         "F_CPU=16000000L",
