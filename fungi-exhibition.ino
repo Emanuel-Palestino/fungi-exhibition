@@ -14,39 +14,113 @@ uint8_t baseR = 100;
 uint8_t baseG = 250;
 uint8_t baseB = 1;
 
-// ====== PARÁMETROS DE RESPIRACIÓN ======
-uint8_t breathBrightness = 0; 
-int breathDirection = 1; 
-unsigned long lastUpdate = 0; 
+// ====== CONTROL DE BRILLO ======
+uint8_t minBrightness = 10;        // Brillo mínimo global
+uint8_t maxBrightnessGlobal = 150; // Brillo máximo global
+uint8_t targetMaxBrightness = 100; // Brillo máximo para el ciclo actual
 
-// Velocidades base (ms entre pasos)
-int breathSpeedNormal = 30;    // respiración normal
-int breathSpeedAnormal = 10;   // más rápida o más lenta
+// ====== CONTROL DE CICLOS ======
+unsigned long breathStartTime = 0;
+unsigned long breathDuration = 3000; 
+bool inhaling = true;
+int ciclosRestantesTipo = 0; 
+bool enojoFaseProfunda = true; // Control de patrón en enojo
 
-// Porcentajes
-int probRespNormal = 60; // porcentaje de respiraciones normales
-int probRespAnormal = 40; // se calcula como 100 - probRespNormal
+// ====== ESTADOS ======
+enum Estado { TRISTEZA, NEUTRAL, ENOJO };
+Estado estadoActual = NEUTRAL;
 
-// Rango de brillo
-uint8_t minBrightness = 10;   
-uint8_t maxBrightness = 100;  
+// ====== CONFIGURACIÓN DE TIPOS ======
+struct TipoRespiracion {
+  int duracionMin;
+  int duracionMax;
+  int brilloMin;
+  int brilloMax;
+  int ciclosMin;
+  int ciclosMax;
+};
 
-// Control de variaciones
-bool esNormal = true;
+TipoRespiracion tipoActual;
+
+// ====== PERFILES SEGÚN ESTADO ======
+TipoRespiracion normalNeutral   = {3000, 4500,  80, 110, 2, 4};
+TipoRespiracion profundaNeutral = {4000, 6000, 120, 150, 2, 3};
+TipoRespiracion cortaNeutral    = {2000, 3000,  60,  90, 3, 6};
+
+// Tristeza → más lento, menos brillo
+TipoRespiracion normalTriste   = {6000, 8000,  40,  80, 3, 5};
+TipoRespiracion profundaTriste = {7000, 9000,  50,  90, 2, 4};
+TipoRespiracion cortaTriste    = {5000, 6500,  35,  70, 3, 5};
+
+// Enojo → más rápido y brillante
+TipoRespiracion profundaEnojo = {2500, 3500, 130, 180, 1, 1}; // Siempre 1 ciclo profundo
+TipoRespiracion cortaEnojo    = {1000, 1500,  90, 130, 3, 5}; // Varias cortas rápidas
+
+// ====== PROBABILIDADES (solo para tristeza/neutral) ======
+int probRespNormal   = 50;
+int probRespProfunda = 30;
+int probRespCorta    = 20;
 
 // ====== SETUP ======
 void setup() {
   Serial.begin(115200);
-  Serial.println("Envia color RGB como: R,G,B (0-255)");
-
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.clear();
   FastLED.show();
 
-  breathBrightness = minBrightness;
+  randomSeed(analogRead(A0));
+  elegirTipoRespiracion();
+}
 
-  randomSeed(analogRead(A0)); // Semilla aleatoria
+// ====== ELECCIÓN DE NUEVO TIPO ======
+void elegirTipoRespiracion() {
+  if (estadoActual == ENOJO) {
+    // Patrón fijo: profunda primero
+    tipoActual = profundaEnojo;
+    ciclosRestantesTipo = 1;
+    enojoFaseProfunda = true;
+    elegirNuevoCiclo();
+    return;
+  }
+
+  TipoRespiracion *opNormal;
+  TipoRespiracion *opProfunda;
+  TipoRespiracion *opCorta;
+
+  switch (estadoActual) {
+    case TRISTEZA:
+      opNormal   = &normalTriste;
+      opProfunda = &profundaTriste;
+      opCorta    = &cortaTriste;
+      break;
+    default: // NEUTRAL
+      opNormal   = &normalNeutral;
+      opProfunda = &profundaNeutral;
+      opCorta    = &cortaNeutral;
+      break;
+  }
+
+  int tipo = random(100);
+  if (tipo < probRespNormal) {
+    tipoActual = *opNormal;
+  } else if (tipo < probRespNormal + probRespProfunda) {
+    tipoActual = *opProfunda;
+  } else {
+    tipoActual = *opCorta;
+  }
+
+  ciclosRestantesTipo = random(tipoActual.ciclosMin, tipoActual.ciclosMax + 1);
+  elegirNuevoCiclo();
+}
+
+// ====== ELECCIÓN DE NUEVO CICLO ======
+void elegirNuevoCiclo() {
+  breathDuration = random(tipoActual.duracionMin, tipoActual.duracionMax);
+  targetMaxBrightness = random(tipoActual.brilloMin, tipoActual.brilloMax + 1);
+  targetMaxBrightness = constrain(targetMaxBrightness, minBrightness, maxBrightnessGlobal);
+  breathStartTime = millis();
+  inhaling = true;
 }
 
 // ====== LECTURA DE COLOR DESDE SERIAL ======
@@ -59,62 +133,68 @@ void leerColorSerial() {
     int secondComma = data.indexOf(',', firstComma + 1);
 
     if (firstComma > 0 && secondComma > firstComma) {
-      int r = data.substring(0, firstComma).toInt();
-      int g = data.substring(firstComma + 1, secondComma).toInt();
-      int b = data.substring(secondComma + 1).toInt();
-
-      baseR = constrain(r, 0, 255);
-      baseG = constrain(g, 0, 255);
-      baseB = constrain(b, 0, 255);
-
-      Serial.print("Nuevo color: ");
-      Serial.print(baseR); Serial.print(", ");
-      Serial.print(baseG); Serial.print(", ");
-      Serial.println(baseB);
+      baseR = constrain(data.substring(0, firstComma).toInt(), 0, 255);
+      baseG = constrain(data.substring(firstComma + 1, secondComma).toInt(), 0, 255);
+      baseB = constrain(data.substring(secondComma + 1).toInt(), 0, 255);
     }
   }
 }
 
 // ====== EFECTO RESPIRACIÓN ======
-void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b) {
+void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
+  if (estado != estadoActual) {
+    estadoActual = estado;
+    elegirTipoRespiracion();
+  }
+
   unsigned long now = millis();
+  float t = (now - breathStartTime) / (float)breathDuration;
 
-  int velocidadActual = esNormal ? breathSpeedNormal : breathSpeedAnormal;
+  if (t >= 1.0) {
+    inhaling = !inhaling;
+    breathStartTime = now;
+    t = 0;
 
-  if (now - lastUpdate > velocidadActual) {
-    lastUpdate = now;
-    
-    breathBrightness += breathDirection;
+    if (inhaling) {
+      ciclosRestantesTipo--;
 
-    // Llegamos al máximo
-    if (breathBrightness >= maxBrightness) {
-      breathBrightness = maxBrightness;
-      breathDirection = -1;
-    }
-    // Llegamos al mínimo → decidir próxima respiración
-    else if (breathBrightness <= minBrightness) {
-      breathBrightness = minBrightness;
-      breathDirection = 1;
-
-      // Decidir si la próxima será normal o anormal
-      if (random(100) < probRespNormal) {
-        esNormal = true;
+      if (estadoActual == ENOJO) {
+        if (enojoFaseProfunda) {
+          tipoActual = cortaEnojo;
+          ciclosRestantesTipo = random(tipoActual.ciclosMin, tipoActual.ciclosMax + 1);
+          enojoFaseProfunda = false;
+          elegirNuevoCiclo();
+        } else {
+          if (ciclosRestantesTipo <= 0) {
+            elegirTipoRespiracion(); // Reinicia patrón enojo
+          } else {
+            elegirNuevoCiclo();
+          }
+        }
       } else {
-        esNormal = false;
+        if (ciclosRestantesTipo <= 0) {
+          elegirTipoRespiracion();
+        } else {
+          elegirNuevoCiclo();
+        }
       }
     }
-
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CRGB(r, g, b);
-      leds[i].nscale8_video(breathBrightness);
-    }
-
-    FastLED.show();
   }
+
+  float curve = (inhaling) ? sin(t * PI / 2) : cos(t * PI / 2);
+  uint8_t brillo = map(curve * 100, 0, 100, minBrightness, targetMaxBrightness);
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CRGB(r, g, b);
+    leds[i].nscale8_video(brillo);
+  }
+  FastLED.show();
 }
 
 // ====== LOOP ======
 void loop() {
   leerColorSerial();
-  efectoRespiracion(baseR, baseG, baseB);
+
+  // Ejemplo: cambiar el estado manualmente
+  efectoRespiracion(baseR, baseG, baseB, ENOJO);
 }
