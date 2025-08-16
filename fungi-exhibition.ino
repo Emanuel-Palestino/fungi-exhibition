@@ -9,10 +9,30 @@
 
 CRGB leds[NUM_LEDS];
 
-// ====== COLOR BASE (RGB) ======
-uint8_t baseR = 100;
-uint8_t baseG = 250;
-uint8_t baseB = 1;
+// ====== COLORES ======
+CRGB colorActual = CRGB(255, 255, 255); // valor inicial
+CRGB coloresTristeza[] = {
+  CRGB(0, 0, 80),
+  CRGB(30, 30, 150),
+  CRGB(70, 130, 180)
+};
+int numColoresTristeza = sizeof(coloresTristeza) / sizeof(coloresTristeza[0]);
+
+CRGB coloresNeutral[] = {
+  CRGB(200, 200, 200),
+  CRGB(255, 255, 255),
+  CRGB(180, 180, 220)
+};
+int numColoresNeutral = sizeof(coloresNeutral) / sizeof(coloresNeutral[0]);
+
+CRGB coloresEnojo[] = {
+  CRGB(255, 0, 0),
+  CRGB(255, 30, 0),
+  CRGB(255, 65, 0),
+  CRGB(255, 100, 0),
+};
+int numColoresEnojo = sizeof(coloresEnojo) / sizeof(coloresEnojo[0]);
+
 
 // ====== CONTROL DE BRILLO ======
 uint8_t minBrightness = 10;        // Brillo mínimo global
@@ -53,8 +73,8 @@ TipoRespiracion profundaTriste = {7000, 9000,  50,  90, 2, 4};
 TipoRespiracion cortaTriste    = {5000, 6500,  35,  70, 3, 5};
 
 // Enojo → más rápido y brillante
-TipoRespiracion profundaEnojo = {2500, 3500, 130, 180, 1, 1}; // Siempre 1 ciclo profundo
-TipoRespiracion cortaEnojo    = {1000, 1500,  90, 130, 3, 5}; // Varias cortas rápidas
+TipoRespiracion profundaEnojo = {1200, 1600, 100, 150, 1, 2}; // Siempre 1 ciclo profundo
+TipoRespiracion cortaEnojo    = {300, 700,  80, 110, 5, 7}; // Varias cortas rápidas
 
 // ====== PROBABILIDADES (solo para tristeza/neutral) ======
 int probRespNormal   = 50;
@@ -124,11 +144,24 @@ void elegirNuevoCiclo() {
   targetMaxBrightness = constrain(targetMaxBrightness, minBrightness, maxBrightnessGlobal);
   breathStartTime = millis();
   inhaling = true;
+  colorActual = getColorByEstado(estadoActual);
+}
+
+// ====== OBTENCIÓN DE COLOR POR ESTADO ======
+CRGB getColorByEstado(Estado estado) {
+  switch (estado) {
+    case TRISTEZA:
+      return coloresTristeza[random(numColoresTristeza)];
+    case ENOJO:
+      return coloresEnojo[random(numColoresEnojo)];
+    default: // NEUTRAL
+      return coloresNeutral[random(numColoresNeutral)];
+  }
 }
 
 
 // ====== EFECTO RESPIRACIÓN ======
-void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
+void efectoRespiracion(Estado estado) {
   if (estado != estadoActual) {
     estadoActual = estado;
     elegirTipoRespiracion();
@@ -153,7 +186,7 @@ void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
           elegirNuevoCiclo();
         } else {
           if (ciclosRestantesTipo <= 0) {
-            elegirTipoRespiracion(); // Reinicia patrón enojo
+            elegirTipoRespiracion();
           } else {
             elegirNuevoCiclo();
           }
@@ -172,7 +205,7 @@ void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
   uint8_t brillo = map(curve * 100, 0, 100, minBrightness, targetMaxBrightness);
 
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CRGB(r, g, b);
+    leds[i] = colorActual;
     leds[i].nscale8_video(brillo);
   }
   FastLED.show();
@@ -180,5 +213,5 @@ void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
 
 // ====== LOOP ======
 void loop() {
-  efectoRespiracion(baseR, baseG, baseB, ENOJO);
+  efectoRespiracion(ENOJO);
 }
