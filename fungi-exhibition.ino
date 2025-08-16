@@ -126,22 +126,6 @@ void elegirNuevoCiclo() {
   inhaling = true;
 }
 
-// ====== LECTURA DE COLOR DESDE SERIAL ======
-void leerColorSerial() {
-  if (Serial.available()) {
-    String data = Serial.readStringUntil('\n');
-    data.trim(); 
-
-    int firstComma = data.indexOf(',');
-    int secondComma = data.indexOf(',', firstComma + 1);
-
-    if (firstComma > 0 && secondComma > firstComma) {
-      baseR = constrain(data.substring(0, firstComma).toInt(), 0, 255);
-      baseG = constrain(data.substring(firstComma + 1, secondComma).toInt(), 0, 255);
-      baseB = constrain(data.substring(secondComma + 1).toInt(), 0, 255);
-    }
-  }
-}
 
 // ====== EFECTO RESPIRACIÓN ======
 void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
@@ -196,8 +180,5 @@ void efectoRespiracion(uint8_t r, uint8_t g, uint8_t b, Estado estado) {
 
 // ====== LOOP ======
 void loop() {
-  leerColorSerial();
-
-  // Ejemplo: cambiar el estado manualmente
   efectoRespiracion(baseR, baseG, baseB, ENOJO);
 }
