@@ -65,7 +65,10 @@ int probRespCorta    = 20;
 void setup() {
   Serial.begin(115200);
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setCorrection(TypicalLEDStrip);
+  FastLED.setDither(true);
   FastLED.setBrightness(BRIGHTNESS);
+  FastLED.setTemperature(TypicalLEDStrip);
   FastLED.clear();
   FastLED.show();
 
