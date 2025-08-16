@@ -19,9 +19,10 @@ CRGB coloresTristeza[] = {
 int numColoresTristeza = sizeof(coloresTristeza) / sizeof(coloresTristeza[0]);
 
 CRGB coloresNeutral[] = {
-  CRGB(200, 200, 200),
-  CRGB(255, 255, 255),
-  CRGB(180, 180, 220)
+  CRGB(80, 255, 0),
+  CRGB(40, 255, 0),
+  CRGB(0, 255, 0),
+  CRGB(0, 255, 8),
 };
 int numColoresNeutral = sizeof(coloresNeutral) / sizeof(coloresNeutral[0]);
 
@@ -63,9 +64,9 @@ struct TipoRespiracion {
 TipoRespiracion tipoActual;
 
 // ====== PERFILES SEGÚN ESTADO ======
-TipoRespiracion normalNeutral   = {3000, 4500,  80, 110, 2, 4};
-TipoRespiracion profundaNeutral = {4000, 6000, 120, 150, 2, 3};
-TipoRespiracion cortaNeutral    = {2000, 3000,  60,  90, 3, 6};
+TipoRespiracion normalNeutral   = {1200, 1600,  80, 110, 2, 4};
+TipoRespiracion profundaNeutral = {1800, 2500, 120, 150, 2, 3};
+TipoRespiracion cortaNeutral    = {900, 1300,  60,  90, 3, 6};
 
 // Tristeza → más lento, menos brillo
 TipoRespiracion normalTriste   = {6000, 8000,  40,  80, 3, 5};
@@ -213,5 +214,5 @@ void efectoRespiracion(Estado estado) {
 
 // ====== LOOP ======
 void loop() {
-  efectoRespiracion(ENOJO);
+  efectoRespiracion(NEUTRAL);
 }
