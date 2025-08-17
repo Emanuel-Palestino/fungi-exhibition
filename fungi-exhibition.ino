@@ -6,8 +6,13 @@
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
 #define BRIGHTNESS  255
+#define TRIG_PIN 9
+#define ECHO_PIN 8
 
 CRGB leds[NUM_LEDS];
+
+// ====== SENSOR DE DISTANCIA ======
+long duracion;
 
 // ====== COLORES ======
 CRGB colorActual = CRGB(255, 255, 255); // valor inicial
@@ -95,6 +100,48 @@ void setup() {
 
   randomSeed(analogRead(A0));
   elegirTipoRespiracion();
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+}
+
+// ====== SENSOR DE DISTANCIA ======
+int getDistanceCM() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  duracion = pulseIn(ECHO_PIN, HIGH, 20000); // timeout 20ms
+  if (duracion == 0) return -1; // no lectura válida
+
+  int dist = duracion * 0.034 / 2; // cm
+  return dist;
+}
+
+unsigned long ultimoCambio = 0;
+unsigned long cooldown = 3000; // 3s entre cambios para evitar rebotes
+
+void checkSensor() {
+  int d = getDistanceCM();
+  if (d > 0 && d < 30) { // objeto detectado cerca
+    unsigned long ahora = millis();
+    if (ahora - ultimoCambio > cooldown) {
+      cambiarEmocion();
+      ultimoCambio = ahora;
+    }
+  }
+}
+
+void cambiarEmocion() {
+  // Rotar entre emociones
+  if (estadoActual == TRISTEZA) estadoActual = NEUTRAL;
+  else if (estadoActual == NEUTRAL) estadoActual = ENOJO;
+  else estadoActual = TRISTEZA;
+
+  elegirTipoRespiracion(); // recalcular respiración
 }
 
 // ====== ELECCIÓN DE NUEVO TIPO ======
@@ -214,5 +261,6 @@ void efectoRespiracion(Estado estado) {
 
 // ====== LOOP ======
 void loop() {
-  efectoRespiracion(NEUTRAL);
+  checkSensor();
+  efectoRespiracion(estadoActual);
 }
