@@ -2,7 +2,7 @@
 
 // ====== CONFIGURACIÓN GENERAL ======
 #define LED_PIN     6
-#define NUM_LEDS    120
+#define NUM_LEDS    480
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
 #define BRIGHTNESS  255
@@ -17,9 +17,10 @@ long duracion;
 // ====== COLORES ======
 CRGB colorActual = CRGB(255, 255, 255); // valor inicial
 CRGB coloresTristeza[] = {
-  CRGB(0, 0, 80),
-  CRGB(30, 30, 150),
-  CRGB(70, 130, 180)
+  CRGB(0, 150, 255),
+  CRGB(0, 60, 255),
+  CRGB(50, 10, 255),
+  CRGB(120, 1, 255),
 };
 int numColoresTristeza = sizeof(coloresTristeza) / sizeof(coloresTristeza[0]);
 
@@ -41,7 +42,7 @@ int numColoresEnojo = sizeof(coloresEnojo) / sizeof(coloresEnojo[0]);
 
 
 // ====== CONTROL DE BRILLO ======
-uint8_t minBrightness = 10;        // Brillo mínimo global
+uint8_t minBrightness = 0;        // Brillo mínimo global
 uint8_t maxBrightnessGlobal = 150; // Brillo máximo global
 uint8_t targetMaxBrightness = 100; // Brillo máximo para el ciclo actual
 
@@ -74,9 +75,9 @@ TipoRespiracion profundaNeutral = {1800, 2500, 120, 150, 2, 3};
 TipoRespiracion cortaNeutral    = {900, 1300,  60,  90, 3, 6};
 
 // Tristeza → más lento, menos brillo
-TipoRespiracion normalTriste   = {6000, 8000,  40,  80, 3, 5};
-TipoRespiracion profundaTriste = {7000, 9000,  50,  90, 2, 4};
-TipoRespiracion cortaTriste    = {5000, 6500,  35,  70, 3, 5};
+TipoRespiracion normalTriste   = {1500, 1900,  10,  80, 3, 5};
+TipoRespiracion profundaTriste = {2000, 3000,  0,  90, 2, 3};
+TipoRespiracion cortaTriste    = {1000, 1400,  25,  70, 3, 5};
 
 // Enojo → más rápido y brillante
 TipoRespiracion profundaEnojo = {1200, 1600, 100, 150, 1, 2}; // Siempre 1 ciclo profundo
