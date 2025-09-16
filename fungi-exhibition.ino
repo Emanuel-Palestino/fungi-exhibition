@@ -9,7 +9,7 @@
 #define TRIG_PIN 9
 #define ECHO_PIN 8
 
-CRGB leds[NUM_LEDS];
+CRGB ledsDummy[1];
 
 // ====== SENSOR DE DISTANCIA ======
 long duracion;
@@ -91,13 +91,12 @@ int probRespCorta    = 20;
 // ====== SETUP ======
 void setup() {
   Serial.begin(115200);
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(ledsDummy, NUM_LEDS);
   FastLED.setCorrection(TypicalLEDStrip);
   FastLED.setDither(true);
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.setTemperature(TypicalLEDStrip);
-  FastLED.clear();
-  FastLED.show();
+  FastLED.showColor(CRGB::Black);
 
   randomSeed(analogRead(A0));
   elegirTipoRespiracion();
@@ -253,11 +252,9 @@ void efectoRespiracion(Estado estado) {
   float curve = (inhaling) ? sin(t * PI / 2) : cos(t * PI / 2);
   uint8_t brillo = map(curve * 100, 0, 100, minBrightness, targetMaxBrightness);
 
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = colorActual;
-    leds[i].nscale8_video(brillo);
-  }
-  FastLED.show();
+  CRGB c = colorActual;
+  c.nscale8_video(brillo);
+  FastLED.showColor(c);
 }
 
 // ====== LOOP ======
