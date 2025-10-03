@@ -1,4 +1,6 @@
 #include <FastLED.h>
+#include "DFRobotDFPlayerMini.h"
+#include <SoftwareSerial.h>
 
 // ====== CONFIGURACIÓN GENERAL ======
 #define LED_PIN     6
@@ -14,8 +16,12 @@ CRGB ledsDummy[1];
 // ====== SENSOR DE DISTANCIA ======
 long duracion;
 
+// ====== DFPLAYER MINI ======
+SoftwareSerial mySoftwareSerial(4, 5); // RX, TX (ajusta según tus pines)
+DFRobotDFPlayerMini myDFPlayer;
+
 // ====== COLORES ======
-CRGB colorActual = CRGB(255, 255, 255); // valor inicial
+CRGB colorActual = CRGB(255, 255, 255);
 CRGB coloresTristeza[] = {
   CRGB(0, 150, 255),
   CRGB(0, 60, 255),
@@ -40,18 +46,17 @@ CRGB coloresEnojo[] = {
 };
 int numColoresEnojo = sizeof(coloresEnojo) / sizeof(coloresEnojo[0]);
 
-
 // ====== CONTROL DE BRILLO ======
-uint8_t minBrightness = 0;        // Brillo mínimo global
-uint8_t maxBrightnessGlobal = 150; // Brillo máximo global
-uint8_t targetMaxBrightness = 100; // Brillo máximo para el ciclo actual
+uint8_t minBrightness = 0;
+uint8_t maxBrightnessGlobal = 150;
+uint8_t targetMaxBrightness = 100;
 
 // ====== CONTROL DE CICLOS ======
 unsigned long breathStartTime = 0;
-unsigned long breathDuration = 3000; 
+unsigned long breathDuration = 3000;
 bool inhaling = true;
-int ciclosRestantesTipo = 0; 
-bool enojoFaseProfunda = true; // Control de patrón en enojo
+int ciclosRestantesTipo = 0;
+bool enojoFaseProfunda = true;
 
 // ====== ESTADOS ======
 enum Estado { TRISTEZA, NEUTRAL, ENOJO };
@@ -74,16 +79,14 @@ TipoRespiracion normalNeutral   = {1200, 1600,  80, 110, 2, 4};
 TipoRespiracion profundaNeutral = {1800, 2500, 120, 150, 2, 3};
 TipoRespiracion cortaNeutral    = {900, 1300,  60,  90, 3, 6};
 
-// Tristeza → más lento, menos brillo
 TipoRespiracion normalTriste   = {1500, 1900,  10,  80, 3, 5};
 TipoRespiracion profundaTriste = {2000, 3000,  0,  90, 2, 3};
 TipoRespiracion cortaTriste    = {1000, 1400,  25,  70, 3, 5};
 
-// Enojo → más rápido y brillante
-TipoRespiracion profundaEnojo = {1200, 1600, 100, 150, 1, 2}; // Siempre 1 ciclo profundo
-TipoRespiracion cortaEnojo    = {300, 700,  80, 110, 5, 7}; // Varias cortas rápidas
+TipoRespiracion profundaEnojo = {1200, 1600, 100, 150, 1, 2};
+TipoRespiracion cortaEnojo    = {300, 700,  80, 110, 5, 7};
 
-// ====== PROBABILIDADES (solo para tristeza/neutral) ======
+// ====== PROBABILIDADES ======
 int probRespNormal   = 50;
 int probRespProfunda = 30;
 int probRespCorta    = 20;
@@ -91,6 +94,8 @@ int probRespCorta    = 20;
 // ====== SETUP ======
 void setup() {
   Serial.begin(115200);
+
+  // LEDs
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(ledsDummy, NUM_LEDS);
   FastLED.setCorrection(TypicalLEDStrip);
   FastLED.setDither(true);
@@ -98,11 +103,23 @@ void setup() {
   FastLED.setTemperature(TypicalLEDStrip);
   FastLED.showColor(CRGB::Black);
 
+  // Aleatorio
   randomSeed(analogRead(A0));
   elegirTipoRespiracion();
 
+  // Sensor
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
+
+  // DFPlayer
+  mySoftwareSerial.begin(9600);
+  if (!myDFPlayer.begin(mySoftwareSerial)) {
+    Serial.println("DFPlayer no encontrado");
+    while(true);
+  }
+  myDFPlayer.volume(30); // Volumen 0-30
+  myDFPlayer.loop(1);    // Arranca con neutral en loop
+  Serial.println("Reproduciendo NEUTRAL");
 }
 
 // ====== SENSOR DE DISTANCIA ======
@@ -114,19 +131,19 @@ int getDistanceCM() {
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
 
-  duracion = pulseIn(ECHO_PIN, HIGH, 20000); // timeout 20ms
-  if (duracion == 0) return -1; // no lectura válida
+  duracion = pulseIn(ECHO_PIN, HIGH, 20000);
+  if (duracion == 0) return -1;
 
-  int dist = duracion * 0.034 / 2; // cm
+  int dist = duracion * 0.034 / 2;
   return dist;
 }
 
 unsigned long ultimoCambio = 0;
-unsigned long cooldown = 3000; // 3s entre cambios para evitar rebotes
+unsigned long cooldown = 3000;
 
 void checkSensor() {
   int d = getDistanceCM();
-  if (d > 0 && d < 30) { // objeto detectado cerca
+  if (d > 0 && d < 30) {
     unsigned long ahora = millis();
     if (ahora - ultimoCambio > cooldown) {
       cambiarEmocion();
@@ -135,19 +152,34 @@ void checkSensor() {
   }
 }
 
+// ====== CAMBIAR EMOCIÓN ======
 void cambiarEmocion() {
-  // Rotar entre emociones
   if (estadoActual == TRISTEZA) estadoActual = NEUTRAL;
   else if (estadoActual == NEUTRAL) estadoActual = ENOJO;
   else estadoActual = TRISTEZA;
 
-  elegirTipoRespiracion(); // recalcular respiración
+  // Reproducir pista en loop según emoción
+  switch (estadoActual) {
+    case NEUTRAL:
+      myDFPlayer.loop(1); // 001.mp3
+      Serial.println("Reproduciendo NEUTRAL");
+      break;
+    case ENOJO:
+      myDFPlayer.loop(2); // 002.mp3
+      Serial.println("Reproduciendo ENOJO");
+      break;
+    case TRISTEZA:
+      myDFPlayer.loop(3); // 003.mp3
+      Serial.println("Reproduciendo TRISTEZA");
+      break;
+  }
+
+  elegirTipoRespiracion();
 }
 
 // ====== ELECCIÓN DE NUEVO TIPO ======
 void elegirTipoRespiracion() {
   if (estadoActual == ENOJO) {
-    // Patrón fijo: profunda primero
     tipoActual = profundaEnojo;
     ciclosRestantesTipo = 1;
     enojoFaseProfunda = true;
@@ -195,18 +227,17 @@ void elegirNuevoCiclo() {
   colorActual = getColorByEstado(estadoActual);
 }
 
-// ====== OBTENCIÓN DE COLOR POR ESTADO ======
+// ====== OBTENER COLOR ======
 CRGB getColorByEstado(Estado estado) {
   switch (estado) {
     case TRISTEZA:
       return coloresTristeza[random(numColoresTristeza)];
     case ENOJO:
       return coloresEnojo[random(numColoresEnojo)];
-    default: // NEUTRAL
+    default:
       return coloresNeutral[random(numColoresNeutral)];
   }
 }
-
 
 // ====== EFECTO RESPIRACIÓN ======
 void efectoRespiracion(Estado estado) {
