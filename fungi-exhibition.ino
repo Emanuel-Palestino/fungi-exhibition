@@ -118,8 +118,27 @@ void setup() {
     while(true);
   }
   myDFPlayer.volume(30); // Volumen 0-30
-  myDFPlayer.loop(1);    // Arranca con neutral en loop
+  myDFPlayer.play(1);    // Arranca con neutral en loop
   Serial.println("Reproduciendo NEUTRAL");
+}
+
+// ====== CONTROL DE REPRODUCCIÓN ======
+unsigned long ultimaRevisionAudio = 0;
+void checkAudioLoop() {
+  if (millis() - ultimaRevisionAudio > 5000) { // cada 5s
+    ultimaRevisionAudio = millis();
+    if (myDFPlayer.available()) {
+      int type = myDFPlayer.readType();
+      if (type == DFPlayerPlayFinished) {
+        // Reproduce de nuevo la pista según la emoción
+        switch (estadoActual) {
+          case NEUTRAL:  myDFPlayer.play(1); break;
+          case ENOJO:    myDFPlayer.play(2); break;
+          case TRISTEZA: myDFPlayer.play(3); break;
+        }
+      }
+    }
+  }
 }
 
 // ====== SENSOR DE DISTANCIA ======
@@ -161,15 +180,21 @@ void cambiarEmocion() {
   // Reproducir pista en loop según emoción
   switch (estadoActual) {
     case NEUTRAL:
-      myDFPlayer.loop(1); // 001.mp3
+      myDFPlayer.stop();
+      delay(50);                 // Pequeño retardo para evitar bloqueo
+      myDFPlayer.play(1);        // 001.mp3
       Serial.println("Reproduciendo NEUTRAL");
       break;
     case ENOJO:
-      myDFPlayer.loop(2); // 002.mp3
+      myDFPlayer.stop();
+      delay(50);
+      myDFPlayer.play(2);        // 002.mp3
       Serial.println("Reproduciendo ENOJO");
       break;
     case TRISTEZA:
-      myDFPlayer.loop(3); // 003.mp3
+      myDFPlayer.stop();
+      delay(50);
+      myDFPlayer.play(3);        // 003.mp3
       Serial.println("Reproduciendo TRISTEZA");
       break;
   }
@@ -292,4 +317,5 @@ void efectoRespiracion(Estado estado) {
 void loop() {
   checkSensor();
   efectoRespiracion(estadoActual);
+  checkAudioLoop();
 }
