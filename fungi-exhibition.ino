@@ -47,10 +47,6 @@ CRGB coloresEnojo[] = {
 };
 int numColoresEnojo = sizeof(coloresEnojo) / sizeof(coloresEnojo[0]);
 
-// ====== CONTROL DE BRILLO ======
-uint8_t minBrightness = 0;
-uint8_t maxBrightness = 150;
-
 // ====== CONTROL DE CICLOS ======
 unsigned long breathStartTime = 0;
 unsigned long breathDuration = 3000;
@@ -65,6 +61,21 @@ Estado estadoActual = NEUTRAL;
 unsigned long duracionNeutral = 3000;  // 3 segundos por ciclo
 unsigned long duracionTristeza = 4000; // 4 segundos por ciclo
 unsigned long duracionEnojo = 1000;    // 1 segundo por ciclo (respiración rápida)
+
+// ====== CONFIGURACIÓN DE BRILLO POR EMOCIÓN ======
+// Brillo mínimo y máximo para cada emoción (0-255)
+struct BrilloEmocion {
+  uint8_t minimo;
+  uint8_t maximo;
+};
+
+BrilloEmocion brilloNeutral = {80, 180};    // Respiración media-alta
+BrilloEmocion brilloTristeza = {0, 100};    // Puede apagarse completamente, brillo bajo
+BrilloEmocion brilloEnojo = {120, 255};     // Respiración intensa y brillante
+
+// Variables actuales de brillo
+uint8_t brilloMinActual = 80;
+uint8_t brilloMaxActual = 180;
 
 // ====== SETUP ======
 void setup() {
@@ -195,16 +206,22 @@ void inicializarRespiracion() {
 }
 
 void actualizarRespiracion() {
-  // Establecer duración según el estado actual
+  // Establecer duración y brillo según el estado actual
   switch (estadoActual) {
     case TRISTEZA:
       breathDuration = duracionTristeza;
+      brilloMinActual = brilloTristeza.minimo;
+      brilloMaxActual = brilloTristeza.maximo;
       break;
     case ENOJO:
       breathDuration = duracionEnojo;
+      brilloMinActual = brilloEnojo.minimo;
+      brilloMaxActual = brilloEnojo.maximo;
       break;
     default: // NEUTRAL
       breathDuration = duracionNeutral;
+      brilloMinActual = brilloNeutral.minimo;
+      brilloMaxActual = brilloNeutral.maximo;
       break;
   }
   
@@ -244,7 +261,7 @@ void efectoRespiracion(Estado estado) {
 
   // Curva de respiración suave
   float curve = (inhaling) ? sin(t * PI / 2) : cos(t * PI / 2);
-  uint8_t brillo = map(curve * 100, 0, 100, minBrightness, maxBrightness);
+  uint8_t brillo = map(curve * 100, 0, 100, brilloMinActual, brilloMaxActual);
 
   CRGB c = colorActual;
   c.nscale8_video(brillo);
