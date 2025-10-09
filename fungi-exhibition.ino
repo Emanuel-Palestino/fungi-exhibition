@@ -48,48 +48,22 @@ int numColoresEnojo = sizeof(coloresEnojo) / sizeof(coloresEnojo[0]);
 
 // ====== CONTROL DE BRILLO ======
 uint8_t minBrightness = 0;
-uint8_t maxBrightnessGlobal = 150;
-uint8_t targetMaxBrightness = 100;
+uint8_t maxBrightness = 150;
 
 // ====== CONTROL DE CICLOS ======
 unsigned long breathStartTime = 0;
 unsigned long breathDuration = 3000;
 bool inhaling = true;
-int ciclosRestantesTipo = 0;
-bool enojoFaseProfunda = true;
 
 // ====== ESTADOS ======
 enum Estado { TRISTEZA, NEUTRAL, ENOJO };
 Estado estadoActual = NEUTRAL;
 
-// ====== CONFIGURACIÓN DE TIPOS ======
-struct TipoRespiracion {
-  int duracionMin;
-  int duracionMax;
-  int brilloMin;
-  int brilloMax;
-  int ciclosMin;
-  int ciclosMax;
-};
-
-TipoRespiracion tipoActual;
-
-// ====== PERFILES SEGÚN ESTADO ======
-TipoRespiracion normalNeutral   = {1200, 1600,  80, 110, 2, 4};
-TipoRespiracion profundaNeutral = {1800, 2500, 120, 150, 2, 3};
-TipoRespiracion cortaNeutral    = {900, 1300,  60,  90, 3, 6};
-
-TipoRespiracion normalTriste   = {1500, 1900,  10,  80, 3, 5};
-TipoRespiracion profundaTriste = {2000, 3000,  0,  90, 2, 3};
-TipoRespiracion cortaTriste    = {1000, 1400,  25,  70, 3, 5};
-
-TipoRespiracion profundaEnojo = {1200, 1600, 100, 150, 1, 2};
-TipoRespiracion cortaEnojo    = {300, 700,  80, 110, 5, 7};
-
-// ====== PROBABILIDADES ======
-int probRespNormal   = 50;
-int probRespProfunda = 30;
-int probRespCorta    = 20;
+// ====== CONFIGURACIÓN DE DURACIÓN POR EMOCIÓN ======
+// Duración en milisegundos de un ciclo completo (inhalar + exhalar)
+unsigned long duracionNeutral = 3000;  // 3 segundos por ciclo
+unsigned long duracionTristeza = 4000; // 4 segundos por ciclo
+unsigned long duracionEnojo = 1000;    // 1 segundo por ciclo (respiración rápida)
 
 // ====== SETUP ======
 void setup() {
@@ -105,7 +79,7 @@ void setup() {
 
   // Aleatorio
   randomSeed(analogRead(A0));
-  elegirTipoRespiracion();
+  inicializarRespiracion();
 
   // Sensor
   pinMode(TRIG_PIN, OUTPUT);
@@ -181,7 +155,7 @@ void cambiarAEnojo() {
   
   myDFPlayer.loop(2);        // 002.mp3 en loop
   
-  elegirTipoRespiracion();
+  actualizarRespiracion();
 }
 
 void regresarANeutral() {
@@ -190,54 +164,28 @@ void regresarANeutral() {
   
   myDFPlayer.loop(1);        // 001.mp3 en loop
   
-  elegirTipoRespiracion();
+  actualizarRespiracion();
 }
 
-// ====== ELECCIÓN DE NUEVO TIPO ======
-void elegirTipoRespiracion() {
-  if (estadoActual == ENOJO) {
-    tipoActual = profundaEnojo;
-    ciclosRestantesTipo = 1;
-    enojoFaseProfunda = true;
-    elegirNuevoCiclo();
-    return;
-  }
+// ====== INICIALIZACIÓN Y ACTUALIZACIÓN DE RESPIRACIÓN ======
+void inicializarRespiracion() {
+  actualizarRespiracion();
+}
 
-  TipoRespiracion *opNormal;
-  TipoRespiracion *opProfunda;
-  TipoRespiracion *opCorta;
-
+void actualizarRespiracion() {
+  // Establecer duración según el estado actual
   switch (estadoActual) {
     case TRISTEZA:
-      opNormal   = &normalTriste;
-      opProfunda = &profundaTriste;
-      opCorta    = &cortaTriste;
+      breathDuration = duracionTristeza;
+      break;
+    case ENOJO:
+      breathDuration = duracionEnojo;
       break;
     default: // NEUTRAL
-      opNormal   = &normalNeutral;
-      opProfunda = &profundaNeutral;
-      opCorta    = &cortaNeutral;
+      breathDuration = duracionNeutral;
       break;
   }
-
-  int tipo = random(100);
-  if (tipo < probRespNormal) {
-    tipoActual = *opNormal;
-  } else if (tipo < probRespNormal + probRespProfunda) {
-    tipoActual = *opProfunda;
-  } else {
-    tipoActual = *opCorta;
-  }
-
-  ciclosRestantesTipo = random(tipoActual.ciclosMin, tipoActual.ciclosMax + 1);
-  elegirNuevoCiclo();
-}
-
-// ====== ELECCIÓN DE NUEVO CICLO ======
-void elegirNuevoCiclo() {
-  breathDuration = random(tipoActual.duracionMin, tipoActual.duracionMax);
-  targetMaxBrightness = random(tipoActual.brilloMin, tipoActual.brilloMax + 1);
-  targetMaxBrightness = constrain(targetMaxBrightness, minBrightness, maxBrightnessGlobal);
+  
   breathStartTime = millis();
   inhaling = true;
   colorActual = getColorByEstado(estadoActual);
@@ -259,45 +207,22 @@ CRGB getColorByEstado(Estado estado) {
 void efectoRespiracion(Estado estado) {
   if (estado != estadoActual) {
     estadoActual = estado;
-    elegirTipoRespiracion();
+    actualizarRespiracion();
   }
 
   unsigned long now = millis();
   float t = (now - breathStartTime) / (float)breathDuration;
 
+  // Reiniciar el ciclo cuando se completa
   if (t >= 1.0) {
     inhaling = !inhaling;
     breathStartTime = now;
     t = 0;
-
-    if (inhaling) {
-      ciclosRestantesTipo--;
-
-      if (estadoActual == ENOJO) {
-        if (enojoFaseProfunda) {
-          tipoActual = cortaEnojo;
-          ciclosRestantesTipo = random(tipoActual.ciclosMin, tipoActual.ciclosMax + 1);
-          enojoFaseProfunda = false;
-          elegirNuevoCiclo();
-        } else {
-          if (ciclosRestantesTipo <= 0) {
-            elegirTipoRespiracion();
-          } else {
-            elegirNuevoCiclo();
-          }
-        }
-      } else {
-        if (ciclosRestantesTipo <= 0) {
-          elegirTipoRespiracion();
-        } else {
-          elegirNuevoCiclo();
-        }
-      }
-    }
   }
 
+  // Curva de respiración suave
   float curve = (inhaling) ? sin(t * PI / 2) : cos(t * PI / 2);
-  uint8_t brillo = map(curve * 100, 0, 100, minBrightness, targetMaxBrightness);
+  uint8_t brillo = map(curve * 100, 0, 100, minBrightness, maxBrightness);
 
   CRGB c = colorActual;
   c.nscale8_video(brillo);
