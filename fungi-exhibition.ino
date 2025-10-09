@@ -117,26 +117,20 @@ void setup() {
     Serial.println("DFPlayer no encontrado");
     while(true);
   }
-  myDFPlayer.volume(30); // Volumen 0-30
-  myDFPlayer.play(1);    // Arranca con neutral en loop
-  Serial.println("Reproduciendo NEUTRAL");
+  myDFPlayer.volume(20); // Volumen 0-30
+  myDFPlayer.loop(1);    // Arranca con neutral en loop
+  Serial.println("Reproduciendo NEUTRAL en loop");
 }
 
 // ====== CONTROL DE REPRODUCCIÓN ======
-unsigned long ultimaRevisionAudio = 0;
 void checkAudioLoop() {
-  if (millis() - ultimaRevisionAudio > 5000) { // cada 5s
-    ultimaRevisionAudio = millis();
-    if (myDFPlayer.available()) {
-      int type = myDFPlayer.readType();
-      if (type == DFPlayerPlayFinished) {
-        // Reproduce de nuevo la pista según la emoción
-        switch (estadoActual) {
-          case NEUTRAL:  myDFPlayer.play(1); break;
-          case ENOJO:    myDFPlayer.play(2); break;
-          case TRISTEZA: myDFPlayer.play(3); break;
-        }
-      }
+  // Procesar el buffer del DFPlayer constantemente para que los comandos se ejecuten
+  if (myDFPlayer.available()) {
+    int type = myDFPlayer.readType();
+    // Puedes agregar aquí manejo de errores si lo necesitas
+    if (type == DFPlayerError) {
+      Serial.print("DFPlayer Error: ");
+      Serial.println(myDFPlayer.readType());
     }
   }
 }
@@ -158,47 +152,44 @@ int getDistanceCM() {
 }
 
 unsigned long ultimoCambio = 0;
-unsigned long cooldown = 3000;
+unsigned long cooldown = 1000; // Cooldown reducido para respuesta más rápida
 
 void checkSensor() {
   int d = getDistanceCM();
-  if (d > 0 && d < 30) {
-    unsigned long ahora = millis();
-    if (ahora - ultimoCambio > cooldown) {
-      cambiarEmocion();
+  unsigned long ahora = millis();
+  
+  // Si hay un objeto a 100cm o menos, cambiar a ENOJO
+  if (d > 0 && d <= 100) {
+    if (estadoActual != ENOJO && ahora - ultimoCambio > cooldown) {
+      cambiarAEnojo();
+      ultimoCambio = ahora;
+    }
+  }
+  // Si no hay objeto cerca (o está fuera de rango), regresar a NEUTRAL
+  else if (d > 100 || d == -1) {
+    if (estadoActual == ENOJO && ahora - ultimoCambio > cooldown) {
+      regresarANeutral();
       ultimoCambio = ahora;
     }
   }
 }
 
 // ====== CAMBIAR EMOCIÓN ======
-void cambiarEmocion() {
-  if (estadoActual == TRISTEZA) estadoActual = NEUTRAL;
-  else if (estadoActual == NEUTRAL) estadoActual = ENOJO;
-  else estadoActual = TRISTEZA;
+void cambiarAEnojo() {
+  estadoActual = ENOJO;
+  Serial.println("Objeto detectado - Reproduciendo ENOJO en loop");
+  
+  myDFPlayer.loop(2);        // 002.mp3 en loop
+  
+  elegirTipoRespiracion();
+}
 
-  // Reproducir pista en loop según emoción
-  switch (estadoActual) {
-    case NEUTRAL:
-      myDFPlayer.stop();
-      delay(50);                 // Pequeño retardo para evitar bloqueo
-      myDFPlayer.play(1);        // 001.mp3
-      Serial.println("Reproduciendo NEUTRAL");
-      break;
-    case ENOJO:
-      myDFPlayer.stop();
-      delay(50);
-      myDFPlayer.play(2);        // 002.mp3
-      Serial.println("Reproduciendo ENOJO");
-      break;
-    case TRISTEZA:
-      myDFPlayer.stop();
-      delay(50);
-      myDFPlayer.play(3);        // 003.mp3
-      Serial.println("Reproduciendo TRISTEZA");
-      break;
-  }
-
+void regresarANeutral() {
+  estadoActual = NEUTRAL;
+  Serial.println("Objeto alejado - Reproduciendo NEUTRAL en loop");
+  
+  myDFPlayer.loop(1);        // 001.mp3 en loop
+  
   elegirTipoRespiracion();
 }
 
