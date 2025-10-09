@@ -8,16 +8,17 @@
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
 #define BRIGHTNESS  255
-#define TRIG_PIN 9
-#define ECHO_PIN 8
+
+// ====== SENSORES ULTRASÓNICOS ======
+#define TRIG_ENOJO 2
+#define ECHO_ENOJO 3
+#define TRIG_TRISTEZA 4
+#define ECHO_TRISTEZA 5
 
 CRGB ledsDummy[1];
 
-// ====== SENSOR DE DISTANCIA ======
-long duracion;
-
 // ====== DFPLAYER MINI ======
-SoftwareSerial mySoftwareSerial(4, 5); // RX, TX (ajusta según tus pines)
+SoftwareSerial mySoftwareSerial(10, 11); // RX, TX
 DFRobotDFPlayerMini myDFPlayer;
 
 // ====== COLORES ======
@@ -81,9 +82,11 @@ void setup() {
   randomSeed(analogRead(A0));
   inicializarRespiracion();
 
-  // Sensor
-  pinMode(TRIG_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
+  // Sensores
+  pinMode(TRIG_ENOJO, OUTPUT);
+  pinMode(ECHO_ENOJO, INPUT);
+  pinMode(TRIG_TRISTEZA, OUTPUT);
+  pinMode(ECHO_TRISTEZA, INPUT);
 
   // DFPlayer
   mySoftwareSerial.begin(9600);
@@ -109,16 +112,16 @@ void checkAudioLoop() {
   }
 }
 
-// ====== SENSOR DE DISTANCIA ======
-int getDistanceCM() {
-  digitalWrite(TRIG_PIN, LOW);
+// ====== SENSORES DE DISTANCIA ======
+int getDistanceCM(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
 
-  digitalWrite(TRIG_PIN, HIGH);
+  digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
+  digitalWrite(trigPin, LOW);
 
-  duracion = pulseIn(ECHO_PIN, HIGH, 20000);
+  long duracion = pulseIn(echoPin, HIGH, 20000);
   if (duracion == 0) return -1;
 
   int dist = duracion * 0.034 / 2;
@@ -126,22 +129,32 @@ int getDistanceCM() {
 }
 
 unsigned long ultimoCambio = 0;
-unsigned long cooldown = 1000; // Cooldown reducido para respuesta más rápida
+unsigned long cooldown = 1000;
 
-void checkSensor() {
-  int d = getDistanceCM();
+void checkSensores() {
+  int distEnojo = getDistanceCM(TRIG_ENOJO, ECHO_ENOJO);
+  int distTristeza = getDistanceCM(TRIG_TRISTEZA, ECHO_TRISTEZA);
   unsigned long ahora = millis();
   
-  // Si hay un objeto a 100cm o menos, cambiar a ENOJO
-  if (d > 0 && d <= 100) {
+  // Prioridad: ENOJO > TRISTEZA > NEUTRAL
+  
+  // Si el sensor de enojo detecta algo (≤100cm), cambiar a ENOJO
+  if (distEnojo > 0 && distEnojo <= 100) {
     if (estadoActual != ENOJO && ahora - ultimoCambio > cooldown) {
       cambiarAEnojo();
       ultimoCambio = ahora;
     }
   }
-  // Si no hay objeto cerca (o está fuera de rango), regresar a NEUTRAL
-  else if (d > 100 || d == -1) {
-    if (estadoActual == ENOJO && ahora - ultimoCambio > cooldown) {
+  // Si el sensor de tristeza detecta algo (≤100cm) y no hay enojo, cambiar a TRISTEZA
+  else if (distTristeza > 0 && distTristeza <= 100) {
+    if (estadoActual != TRISTEZA && ahora - ultimoCambio > cooldown) {
+      cambiarATristeza();
+      ultimoCambio = ahora;
+    }
+  }
+  // Si ningún sensor detecta nada, regresar a NEUTRAL
+  else if ((distEnojo > 100 || distEnojo == -1) && (distTristeza > 100 || distTristeza == -1)) {
+    if (estadoActual != NEUTRAL && ahora - ultimoCambio > cooldown) {
       regresarANeutral();
       ultimoCambio = ahora;
     }
@@ -151,16 +164,25 @@ void checkSensor() {
 // ====== CAMBIAR EMOCIÓN ======
 void cambiarAEnojo() {
   estadoActual = ENOJO;
-  Serial.println("Objeto detectado - Reproduciendo ENOJO en loop");
+  Serial.println("Sensor ENOJO activado - Reproduciendo ENOJO en loop");
   
   myDFPlayer.loop(2);        // 002.mp3 en loop
   
   actualizarRespiracion();
 }
 
+void cambiarATristeza() {
+  estadoActual = TRISTEZA;
+  Serial.println("Sensor TRISTEZA activado - Reproduciendo TRISTEZA en loop");
+  
+  myDFPlayer.loop(3);        // 003.mp3 en loop
+  
+  actualizarRespiracion();
+}
+
 void regresarANeutral() {
   estadoActual = NEUTRAL;
-  Serial.println("Objeto alejado - Reproduciendo NEUTRAL en loop");
+  Serial.println("Sensores inactivos - Reproduciendo NEUTRAL en loop");
   
   myDFPlayer.loop(1);        // 001.mp3 en loop
   
@@ -231,7 +253,7 @@ void efectoRespiracion(Estado estado) {
 
 // ====== LOOP ======
 void loop() {
-  checkSensor();
+  checkSensores();
   efectoRespiracion(estadoActual);
   checkAudioLoop();
 }
