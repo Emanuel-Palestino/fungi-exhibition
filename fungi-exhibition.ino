@@ -4,7 +4,7 @@
 
 // ====== CONFIGURACIÓN GENERAL ======
 #define LED_PIN     6
-#define NUM_LEDS    480
+#define NUM_LEDS    600
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
 #define BRIGHTNESS  255
@@ -58,9 +58,9 @@ Estado estadoActual = NEUTRAL;
 
 // ====== CONFIGURACIÓN DE DURACIÓN POR EMOCIÓN ======
 // Duración en milisegundos de un ciclo completo (inhalar + exhalar)
-unsigned long duracionNeutral = 3000;  // 3 segundos por ciclo
-unsigned long duracionTristeza = 4000; // 4 segundos por ciclo
-unsigned long duracionEnojo = 1000;    // 1 segundo por ciclo (respiración rápida)
+unsigned long duracionNeutral = 495;  // 2 segundos por ciclo
+unsigned long duracionTristeza = 760; // 3 segundos por ciclo
+unsigned long duracionEnojo = 290;    // 1 segundo por ciclo (respiración rápida)
 
 // ====== CONFIGURACIÓN DE BRILLO POR EMOCIÓN ======
 // Brillo mínimo y máximo para cada emoción (0-255)
@@ -69,9 +69,9 @@ struct BrilloEmocion {
   uint8_t maximo;
 };
 
-BrilloEmocion brilloNeutral = {80, 180};    // Respiración media-alta
+BrilloEmocion brilloNeutral = {40, 150};    // Respiración media-alta
 BrilloEmocion brilloTristeza = {0, 100};    // Puede apagarse completamente, brillo bajo
-BrilloEmocion brilloEnojo = {120, 255};     // Respiración intensa y brillante
+BrilloEmocion brilloEnojo = {80, 200};     // Respiración intensa y brillante
 
 // Variables actuales de brillo
 uint8_t brilloMinActual = 80;
