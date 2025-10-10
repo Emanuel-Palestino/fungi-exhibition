@@ -1,9 +1,10 @@
 #include <FastLED.h>
 #include "DFRobotDFPlayerMini.h"
 #include <SoftwareSerial.h>
+#include <Servo.h>
 
 // ====== CONFIGURACIÓN GENERAL ======
-#define LED_PIN     6
+#define LED_PIN     12
 #define NUM_LEDS    600
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
@@ -14,6 +15,25 @@
 #define ECHO_ENOJO 3
 #define TRIG_TRISTEZA 4
 #define ECHO_TRISTEZA 5
+#define TRIG_SERVO 6
+#define ECHO_SERVO 7
+
+// ====== SERVOMOTORES PARA PÁRPADOS ======
+#define SERVO_PARPADO_1_PIN 9
+#define SERVO_PARPADO_2_PIN 8
+Servo servoParpado1;
+Servo servoParpado2;
+
+// Variables configurables de los servos (rotación continua)
+int servoVelocidadCerrar = 100;   // Velocidad para cerrar párpados (90-180, mayor = más rápido)
+int servoVelocidadAbrir = 80;     // Velocidad para abrir párpados (0-90, menor = más rápido)
+int servoDetenido = 90;            // Valor para detener servos de rotación continua
+unsigned long tiempoCierre = 1000;  // Tiempo en ms que los servos jalan el hilo para cerrar (ajusta según necesites)
+
+// Estado de los párpados
+bool parpadeando = false;
+bool parpadosCerrados = false;
+unsigned long tiempoInicioCierre = 0;
 
 CRGB ledsDummy[1];
 
@@ -98,6 +118,14 @@ void setup() {
   pinMode(ECHO_ENOJO, INPUT);
   pinMode(TRIG_TRISTEZA, OUTPUT);
   pinMode(ECHO_TRISTEZA, INPUT);
+  pinMode(TRIG_SERVO, OUTPUT);
+  pinMode(ECHO_SERVO, INPUT);
+
+  // Servomotores de párpados
+  servoParpado1.attach(SERVO_PARPADO_1_PIN);
+  servoParpado2.attach(SERVO_PARPADO_2_PIN);
+  servoParpado1.write(servoDetenido); // Iniciar detenidos
+  servoParpado2.write(servoDetenido);
 
   // DFPlayer
   mySoftwareSerial.begin(9600);
@@ -145,6 +173,7 @@ unsigned long cooldown = 1000;
 void checkSensores() {
   int distEnojo = getDistanceCM(TRIG_ENOJO, ECHO_ENOJO);
   int distTristeza = getDistanceCM(TRIG_TRISTEZA, ECHO_TRISTEZA);
+  int distServo = getDistanceCM(TRIG_SERVO, ECHO_SERVO);
   unsigned long ahora = millis();
   
   // Prioridad: ENOJO > TRISTEZA > NEUTRAL
@@ -170,6 +199,38 @@ void checkSensores() {
       ultimoCambio = ahora;
     }
   }
+
+  // Control de párpados - Cerrar cuando detecta objeto
+  if (distServo > 0 && distServo <= 100) {
+    if (!parpadeando && !parpadosCerrados) {
+      Serial.println("Sensor OJO activado - Cerrando párpados");
+      cerrarParpados();
+    }
+  }
+  // Abrir cuando ya no detecta objeto
+  else if (distServo > 100 || distServo == -1) {
+    if (parpadosCerrados && !parpadeando) {
+      Serial.println("Sensor OJO desactivado - Abriendo párpados");
+      abrirParpados();
+    }
+  }
+}
+
+// ====== CONTROL DE PÁRPADOS ======
+void cerrarParpados() {
+  parpadeando = true;
+  tiempoInicioCierre = millis();
+  // Girar servos para cerrar párpados
+  servoParpado1.write(servoVelocidadCerrar);
+  servoParpado2.write(servoVelocidadCerrar);
+}
+
+void abrirParpados() {
+  parpadeando = true;
+  tiempoInicioCierre = millis();
+  // Girar servos en dirección contraria para abrir párpados
+  servoParpado1.write(servoVelocidadAbrir);
+  servoParpado2.write(servoVelocidadAbrir);
 }
 
 // ====== CAMBIAR EMOCIÓN ======
@@ -268,9 +329,34 @@ void efectoRespiracion(Estado estado) {
   FastLED.showColor(c);
 }
 
+// ====== ACTUALIZAR ESTADO DE PÁRPADOS ======
+void actualizarParpados() {
+  if (parpadeando) {
+    unsigned long ahora = millis();
+    
+    // Verificar si ya pasó el tiempo de movimiento
+    if (ahora - tiempoInicioCierre >= tiempoCierre) {
+      // Detener ambos servos
+      servoParpado1.write(servoDetenido);
+      servoParpado2.write(servoDetenido);
+      
+      // Actualizar estado
+      parpadeando = false;
+      parpadosCerrados = !parpadosCerrados; // Alternar entre cerrado/abierto
+      
+      if (parpadosCerrados) {
+        Serial.println("Párpados cerrados");
+      } else {
+        Serial.println("Párpados abiertos");
+      }
+    }
+  }
+}
+
 // ====== LOOP ======
 void loop() {
   checkSensores();
   efectoRespiracion(estadoActual);
   checkAudioLoop();
+  actualizarParpados();
 }
